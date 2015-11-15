@@ -1,0 +1,971 @@
+import numpy as np
+import maya.cmds as cmds
+import math
+import random
+cmds.select(all=True)
+cmds.delete()
+
+cmds.nurbsPlane(name='a10')
+cmds.scale(20,20,20)
+cmds.rotate(0,90,0,'a10')
+cmds.move(0,0,-10)
+
+cmds.nurbsPlane(name='a11')
+cmds.rotate(0,90,0,'a11')
+cmds.move(0,0,10)
+cmds.scale(20,20,20)
+
+cmds.nurbsPlane(name='a12')
+cmds.rotate(90,0,0,'a12')
+cmds.move(-10,0,0)
+cmds.scale(20,20,20)
+
+cmds.nurbsPlane(name='a13')
+cmds.rotate(90,0,0,'a13')
+cmds.move(10,0,0)
+cmds.scale(20,20,20)
+
+cmds.nurbsPlane(name='a14')
+cmds.rotate(0,0,90,'a14')
+cmds.move(0,-10,0)
+cmds.scale(20,20,20)
+
+cmds.nurbsPlane(name='a15')
+cmds.rotate(0,0,90,'a15')
+cmds.move(0,10,0)
+cmds.scale(20,20,20)
+
+cmds.shadingNode('blinn',asShader=True)
+cmds.sets(renderable=True,noSurfaceShader=True,empty=True,name='blinn1SG')
+cmds.connectAttr('blinn1.outColor','blinn1SG.surfaceShader')
+cmds.setAttr('blinn1.transparency',0.75,0.75,0.75)
+cmds.select('a10','a11','a12','a13','a14','a15',r=True)
+cmds.sets(forceElement='blinn1SG')
+
+ngh=1
+atomProperty=dict()
+atomProperty['C']=[float(.67),4,12,-4,[random.uniform(-1,1),random.uniform(-1,1),random.uniform(-1,1)]]
+atomProperty['O']=[float(.48),6,16,-6,[random.uniform(-1,1),random.uniform(-1,1),random.uniform(-1,1)]]
+atomProperty['H']=[float(.53),1,1,-1,[random.uniform(-1,1),random.uniform(-1,1),random.uniform(-1,1)]]
+noOfBonds=dict()
+bondsLink=dict()
+forceDict=dict()
+inertiaDict=dict()
+s=dict()
+rotateDict=dict()
+ok='Yes'
+iStateDict=dict()
+iVelocityDict=dict()
+while ngh==1:
+    ok=raw_input('Enter either No or anything else to create more atom/atoms- ')
+    if ok=='No':
+        break
+    
+    if ok=='d':
+        name1='C'
+        no=10
+    else:
+        print 'Enter name and no. of atoms'
+        name1=raw_input('name- ')
+        no=raw_input('Number of atoms- ')
+        print 'when asked next time enter- No,to terminate and create the above mentioned atoms'
+    
+    for i in range (int(no)):
+        cmds.sphere(name=name1+str(i),radius=atomProperty[name1][0])
+        
+        noOfBonds[name1+str(i)]=0
+        bondsLink[name1+str(i)]=[]
+        forceDict[name1+str(i)]=[0,0,0]
+        if name1=='C':
+            iStateDict[name1+str(i)]=random.uniform(-19,19),0,0
+            iVelocityDict[name1+str(i)]=[random.uniform(-1,1),0,0]
+            s[name1+str(i)]=[float(.67),4,12,-4,iVelocityDict[name1+str(i)]]
+            cmds.move(iStateDict[name1+str(i)][0],iStateDict[name1+str(i)][1],iStateDict[name1+str(i)][2])
+        elif name1=='H':
+            iStateDict[name1+str(i)]=random.uniform(-19,19),0,0
+            iVelocityDict[name1+str(i)]=[random.uniform(-1,1),0,0]
+            s[name1+str(i)]=[float(.67),1,1,-1,[random.uniform(-1,1),random.uniform(-1,1),random.uniform(-1,1)]]
+            cmds.move(iStateDict[name1+str(i)][0],iStateDict[name1+str(i)][1],iStateDict[name1+str(i)][2])
+        elif name1=='O':
+            iStateDict[name1+str(i)]=random.uniform(-90,0),random.uniform(-90,0),random.uniform(-90,0)
+            s[name1+str(i)]=[float(.67),6,16,-6,[random.uniform(-5,5),random.uniform(-5,5),random.uniform(-5,5)]]
+            cmds.move(iStateDict[name1+str(i)][0],iStateDict[name1+str(i)][1],iStateDict[name1+str(i)][2])
+        else:
+            raise Exception('this atom name is not defined')
+    if ok=='d':
+        break
+
+bondsDict=dict()
+bondsDict['HH']=[.74,436]    #NAME,LENGTH(PM),ENERGY(Kj/mol)
+bondsDict['CC']=[1.54,348]
+bondsDict['NN']=[1.45,170]
+bondsDict['OO']=[1.48,145]
+bondsDict['FF']=[1.42,158]
+bondsDict['ClCl']=[1.99,243]
+bondsDict['BrBr']=[2.28,193]
+bondsDict['II']=[2.67,151]
+bondsDict['CN']=[1.47,308]
+bondsDict['CO']=[1.43,360]
+bondsDict['OC']=[1.43,360]
+bondsDict['CS']=[1.82,272]
+bondsDict['CF']=[1.35,488]
+bondsDict['CCl']=[2.14,330]
+bondsDict['CBr']=[1.94,288]
+bondsDict['CI']=[2.14,216]
+bondsDict['CH']=[1.09,413]
+bondsDict['HC']=[1.09,413]
+bondsDict['OH']=[.96,366]
+bondsDict['HO']=[.96,366]
+bondsDict['HF']=[.92,568]
+bondsDict['HCl']=[1.27,432]
+bondsDict['HBr']=[1.41,366]
+bondsDict['HI']=[1.61,298]
+bondsDict['CdC']=[1.34,614]
+bondsDict['CtC']=[1.20,839]
+bondsDict['OdO']=[1.21,498]
+bondsDict['NtN']=[1.10,945]
+       #name,radius,electrons,mass,velocity,temperature)
+                        
+class state:
+    def __init__(self,name):
+        self.name=name
+        
+        s=cmds.getAttr(name+'.translate',type=False)
+        self.x,self.y,self.z=s[0]
+    def distance(self):
+        self.r=math.sqrt(self.x*self.x+self.y*self.y+self.z*self.z)
+        return self.r
+    def __add__(self,other):
+        return self.x+other.x,self.y+other.y,self.z+other.z
+    def __sub__(self,other):
+        return self.x-other.x,self.y-other.y,self.z-other.z
+    def __str__(self):
+        return str(self.x)+','+str(self.y)+','+str(self.z)
+    def points(self):
+        global bondsLink
+        if len(cmds.ls(self.name,dag=True))>2:
+            global iStateDict
+            a=self.x+iStateDict[self.name][0],self.y+iStateDict[self.name][1],self.z+iStateDict[self.name][2]
+        elif cmds.listRelatives(self.name,p=True)!=None:
+            global stateDict
+            global refe
+            refe1=piterate(self.name)
+            aref=state(refe1[0])
+            r=aref.points()
+            a=r[0]-stateDict[self.name][0],r[1]-stateDict[self.name][1],r[2]-stateDict[self.name][2]
+            refe=[]
+        else:
+            a=self.x,self.y,self.z
+        return a
+               
+class properties_n:       #send me points of the state and mass
+    def __init__(self,t,m):
+        self.t=t
+        self.m=m
+    def COM(self):
+        x=0
+        y=0
+        z=0
+        mass=0
+        
+        
+        for i in range (len(self.t)):
+            
+            
+            x+=self.t[i][0]*self.m[i]
+            y+=self.t[i][1]*self.m[i]
+            z+=self.t[i][2]*self.m[i]            
+            mass+=self.m[i]
+        return x/mass,y/mass,z/mass
+class property:
+    def __init__(self,t):
+        self.t=t
+        
+    def distance(self):
+        
+        
+        self.r=math.sqrt((self.t[0][0]-self.t[1][0])*(self.t[0][0]-self.t[1][0])+(self.t[0][1]-self.t[1][1])*(self.t[0][1]-self.t[1][1])+(self.t[0][2]-self.t[1][2])*(self.t[0][2]-self.t[1][2]))
+        return self.r
+class force:
+    def __init__(self,s):
+        self.s=s
+        
+    def tForce(self):
+        
+        fc=0
+        fe=0
+        fcx=0.0
+        fcy=0.0
+        fcz=0.0
+        fex=0.0
+        fey=0.0
+        fez=0.0
+        tf=[0.0,0.0,0.0]
+        kc=0.0 #6.67384*math.pow(10,-20)   #for nanometer
+        ke=0.0  #for  ....
+        r12x,r12y,r12z=0,0,0
+        lis=[]
+        for i in s:
+            lis.append(i)
+        for i in range (len(lis)):
+            j=i+1
+            while j>i and j<len(lis):
+                
+                p1=state(lis[i])
+                p2=state(lis[j]) 
+                p=p1.points(),p2.points()
+                r12y+=p[1][1]-p[0][1]
+                r12x+=p[1][0]-p[0][0]
+                r12z+=p[1][2]-p[0][2]
+                rref=property(p)
+                r12=rref.distance()
+                if r12==0:
+                    r12=0.001
+                fc+=kc*s[lis[i]][2]*s[lis[j]][2]/(r12*r12)
+                fe+=ke*s[lis[i]][3]*s[lis[j]][3]/(r12*r12)
+               
+                tf1=[fc*r12x/r12+fe*r12x/r12,fc*r12y/r12+fe*r12y/r12,fc*r12z/r12+fe*r12z/r12]
+                forceDict[lis[j]][0]+=-1*tf1[0]
+                forceDict[lis[j]][1]+=-1*tf1[1]
+                forceDict[lis[j]][2]+=-1*tf1[2]
+                forceDict[lis[i]][0]+=tf1[0]
+                forceDict[lis[i]][1]+=tf1[1]
+                forceDict[lis[i]][2]+=tf1[2]
+                #afr=math.sqrt(forceDict[lis[i]][0]*forceDict[lis[i]][0]+forceDict[lis[i]][1]*forceDict[lis[i]][1]*forceDict[lis[i]][2]*forceDict[lis[i]][2])
+                #if afr>200:
+                 #   if forceDict[lis[i]][0]>forceDict[lis[i]][1] andforceDict[lis[i]][2])=100
+                j+=1
+         
+        
+'''
+class atom:      # has faulty on charge written (name,radius,electrons,mass,charge,no. of bonds)
+    def __init__(self,name):
+        self.name=name  #radii in picometer                
+                                                                  
+    def radius(self):
+        global s
+        if self.name in s:
+            
+            return s[self.name][0]
+            
+    def electrons(self):
+        global s
+        
+        if self.name in s:
+            
+            return s[self.name][1]
+            
+    def mass(self):
+        global s
+        if self.name in s:
+            
+            return s[self.name][2]
+              
+    def charge(self):
+        global s
+        if self.name in s:
+            
+            return s[self.name][3]
+           
+'''           
+comonName=0 
+                      
+class molecule:
+    def __init__(self,name):
+        self.name=name
+        
+        
+    
+    def __add__(self,other):
+
+        print 'add was Called'
+        cmds.select(self.name,r=True)
+        cmds.select(other.name,add=True)
+        
+  
+        a=state(self.name)
+        b=state(other.name)
+        c=a.points()
+        d=b.points()
+        
+        t=c,d
+        
+        
+        global s 
+        global noOfBonds
+        global bondsLink
+        refb=0
+        if self.name in bondsLink:
+            if other.name not in bondsLink[self.name]:
+                link=bondsLink[self.name]
+                link.append(other.name)
+                bondsLink[self.name]=link
+                refb=1
+        if other.name in bondsLink:
+            if self.name not in bondsLink[other.name]:
+                link1=bondsLink[other.name]
+                link1.append(self.name)
+                bondsLink[other.name]=link1
+                refb=1
+        if refb==0:
+            print 'both not present in bondsLink'
+        
+       
+        def atomn(name):
+            k=0
+            l=1
+            while True:
+                try:
+                    k=int(name[-l])
+                except ValueError:
+                    a=name[0:len(name)-l+1]
+                    return a
+                    break
+                l+=1
+        h=atomn(self.name)
+        i=atomn(other.name)
+        r=h+i
+        
+        b=bondLength(r)
+        r1=b.getDefaultLength()
+        
+        m=s[self.name][2],s[other.name][2]
+        q=property(t)
+        
+        if s[self.name][2]>=s[other.name][2]:
+            name0=self.name
+            name1=other.name
+        else:
+            name1=self.name
+            name0=other.name
+        #ref=VSEPR(name0)
+        #result=ref.result()
+        result=0
+        if result==2:
+            mf=r1-q.distance()
+            nf=q.distance()
+            if nf==0:
+                nf=0.01
+            x=((mf+nf)*d[0]-mf*c[0])/nf
+            y=((mf+nf)*d[1]-mf*c[1])/nf
+            z=((mf+nf)*d[2]-mf*c[2])/nf
+            cmds.move(x,y,z,name1,ws=True)
+        elif result==3:
+            state1=state(name0)
+            P0=state1.points()
+            if len(bondsLink[name0])==1:    # updated version
+                mf=r1-q.distance()
+                nf=q.distance()
+                x=((mf+nf)*d[0]-mf*c[0])/nf
+                y=((mf+nf)*d[1]-mf*c[1])/nf
+                z=((mf+nf)*d[2]-mf*c[2])/nf
+                
+                cmds.move(x,y,z,name1,ws=True)
+                print 'its me'
+            elif len(bondsLink[name0])==2:
+                state2=state(bondsLink[name0][1])
+                P1=state2.points()
+                x1,y1,z1=P1
+                x0,y0,z0=P0
+                Pr=x1-x0,y1-y0,z1-z0
+                ppp=P0,P1
+                p123=property(ppp)
+                rr=p123.distance()
+                if Pr[0]==0:
+                    theta=22/(2*7)
+                else:
+                    theta=math.atan(Pr[1]/Pr[0])
+                fi=math.acos(Pr[2]/rr)
+                x=r1*math.cos(theta+2*3.14/3)*math.sin(fi)+x0
+                y=r1*math.sin(theta+2*3.14/3)*math.sin(fi)+y0
+                z=r1*math.cos(fi)+z0
+                print x,y,z,name1
+                #global refe
+                #pnam=piterate(name1)
+                #cmds.rotate(
+                cmds.move(x,y,z,name1,ws=True)
+                #refe=[]
+                print 'its not me'
+           # elif len(bondsLink[name0])==2:
+            elif len(bondsLink[name0])==3:
+                state2=state(bondsLink[name0][1])
+                P1=state2.points()
+                x1,y1,z1=P1
+                x0,y0,z0=P0
+                Pr=x1-x0,y1-y0,z1-z0
+                ppp=P0,P1
+                p123=property(ppp)
+                rr=p123.distance()
+                
+                    
+                theta=math.atan(Pr[1]/Pr[0])
+                fi=math.acos(Pr[2]/rr)
+                x=r1*math.cos(theta+2*3.14/3)*math.sin(fi)+x0
+                y=r1*math.sin(theta+2*3.14/3)*math.sin(fi)+y0
+                z=r1*math.cos(fi)+z0
+                state3=state(bondsLink[name0][2])
+                P2=state3.points()
+                Pxx=x,y,z
+                dis1=P0,P2
+                dis2=P0,Pxx
+                dis3=P2,Pxx
+                ds1=property(dis1)
+                ds2=property(dis2)
+                ds3=property(dis3)
+                if ds1.distance()==ds2.distance()+ds3.distance():
+                    x=r1*math.cos(theta-2*3.14/3)*math.sin(fi)+x0
+                    y=r1*math.sin(theta-2*3.14/3)*math.sin(fi)+y0
+                
+                    cmds.move(x,y,z,name1,ws=True)
+                else:
+                    cmds.move(x,y,z,name1,ws=True)
+                print 'its not not me'
+               
+        names=self.name,other.name
+        gr=groups(names)
+        gr.groupThem()
+     
+m=0 
+def sendValue(a):
+    global s
+    global m
+    for i in range (len(s)):
+        if a[0]==s[i][0]:
+            m+=1
+            a[0]=a[0]+str(m)
+    
+        
+    s.append(a)
+    print s
+refm=0            
+def moleculeAdd(name):
+    a=name[0]
+    b=name[1]
+    
+    k=len(name)
+    global refm
+    for i in range (1,k):
+        molecule(a)+molecule(b)
+        '''
+        a=a+b+str(refm)
+        if i==k-1:
+            break
+        else:
+            b=name[i+1]
+        '''
+    
+        
+
+
+
+
+
+
+class bondLength:
+    def __init__(self,name):
+        self.name=name
+    def getDefaultLength(self):
+        global bondsDict
+        print self.name
+        return bondsDict[self.name][0]
+        
+    def getDefaultEnergy(self):
+        global bondsDict
+        return bondsDict[self.name][1]
+
+class VSEPR:
+    def __init__(self,name):
+        self.name=name
+    global bondsLink
+    
+    def result(self):
+        
+        k=len(bondsLink[self.name])  #should be called by reaction function for single or double bond
+        l=float((k+s[self.name][1])/2)
+        print 'VSEPR'
+        print l
+        return l
+lis=[]
+gname=['groupname']
+refe=[]
+stateDict=dict()
+def piterate(name):
+            
+    global refe
+    a=cmds.listRelatives(name,p=True)   
+    if a!=None:
+        k=piterate(a[0])
+        refe.append(a[0])       
+    return refe 
+class groups:
+    def __init__(self,names):
+        self.names=names
+    def groupThem(self):
+        global bondsLink
+        #cmds.select(self.names[0],r=True)
+        k=bondsLink[self.names[0]]
+        l=bondsLink[self.names[1]]
+        global lis
+        lis=[self.names[0]]
+        def iterate(list,l):
+            global bondsLink
+            global lis
+                    
+            if l>0:
+                for x in list:
+                    y=bondsLink[x]
+                    z=len(y)
+                            #cmds.select(x,add=True)
+                    if x not in lis:
+                        lis.append(x)        
+                        iterate(y,z)
+                l-=1
+            else:
+                print 'sucessfully iterated'
+        
+        global comonName
+        global gname
+        if len(k)>0:
+            iterate(k,len(k))
+        elif len(l)>0:
+            iterate(l,len(l))
+        r=self.names[0]+self.names[1]
+        #print r+str(comonName)
+        gname=[r+str(comonName)]
+        global refe
+        global ref
+        global s
+        t=[]
+        m=[]
+        tm=0
+        te=0
+        tr=0
+        tc=0
+        xfa,yfa,zfa=0,0,0
+        
+        
+              
+        if cmds.listRelatives(self.names[0],p=True)!=None:
+            krefe=piterate(self.names[0])
+            cmds.select(krefe[0],r=True)
+            
+            if len(krefe)>1:
+                del s[krefe[1]]
+                print 'something deleted'
+                del bondsLink[krefe[1]]
+                del ref[krefe[1]]
+            
+        else:
+            cmds.select(self.names[0],r=True)
+        refe=[]   
+        if cmds.listRelatives(self.names[1],p=True)!=None:
+            krefe1=piterate(self.names[1])
+            cmds.select(krefe1[0],add=True)
+            
+            if len(krefe1)>1:
+                print 'something deleted'
+                del s[krefe1[1]]
+                del bondsLink[krefe1[1]]
+                del ref[krefe1[1]]
+            
+        else:
+            cmds.select(self.names[1],add=True)
+        refe=[]
+        for nam in lis:
+            
+            m.append(s[nam][2])
+            tm+=s[nam][2]
+            tr+=s[nam][0]
+            te+=s[nam][1]
+            tc+=s[nam][3]
+            
+            b=state(nam)
+            t.append(b.points())
+            xfa,yfa,zfa=iStateDict[nam]
+            #cmds.move(-xfa,-yfa,-zfa,nam)
+        COM=properties_n(t,m)
+        com=COM.COM()
+        ax,by,cz=com
+        print lis
+        for nam in lis:
+            
+            na11=state(nam)
+            na1=na11.points()   
+            stateDict[nam]=ax-na1[0],by-na1[1],cz-na1[2]
+      
+        
+        I=0
+        for i in range(len(lis)):
+            tref=com,t[i]
+            tref1=property(tref)
+            I+=s[lis[i]][2]*tref1.distance()
+        inertiaDict[r+str(comonName)]=I
+        cmds.group(name=r+str(comonName),w=True)
+        cmds.xform(p=True,ws=True,piv=com)
+        lis=[]
+        ve11=s[self.names[0]][4][0]
+        ve12=s[self.names[0]][4][1]
+        ve13=s[self.names[0]][4][2]
+        ve21=s[self.names[1]][4][0]
+        ve22=s[self.names[1]][4][1]
+        ve23=s[self.names[1]][4][2]
+        ma1=s[self.names[0]][2]
+        ma2=s[self.names[1]][2]
+        velf=[(ma1*ve11+ma2*ve21)/(ma1+ma2),(ma1*ve12+ma2*ve22)/(ma1+ma2),(ma1*ve13+ma2*ve23)/(ma1+ma2)]
+        s[r+str(comonName)]=[tr,te,tm,tc,velf]     #name,radius,electrons,mass,charge,no. of bonds
+        iStateDict[r+str(comonName)]=com
+        ref[r+str(comonName)]=[[(0,0,0)],1]
+        bondsLink[r+str(comonName)]=[]
+        forceDict[r+str(comonName)]=[0,0,0]
+        iVelocityDict[r+str(comonName)]=velf
+        comonName+=1
+        tes=state(gname[0])
+        print tes.points(),com
+            
+class momentum:
+    def __init__(self,name):
+        self.name=name
+    def __add__(self,other):
+        global s
+        m1=s[self.name][2]
+        m2=s[other.name][2]
+        '''
+        v11=motionOfAtoms(self.name)
+        v22=motionOfAtoms(other.name)
+        
+        if len(bondsLink[self.name])>0:
+            
+            m1=s[self.name][2]
+        else:
+            m1=m11.mass()
+        if len(bondsLink[other.name])>0:
+            
+            m2=s[other.name][2]
+        else:
+            m2=m22.mass() 
+        '''
+        v1=s[self.name][4]
+        v2=s[other.name][4]
+       
+        v10=(v1[0]*(m1-m2)+2*m2*v2[0])/(m1+m2)
+        v20=(v2[0]*(m1-m2)+2*m1*v1[0])/(m1+m2)
+        v11=(v1[1]*(m1-m2)+2*m2*v2[1])/(m1+m2)
+        v21=(v2[1]*(m1-m2)+2*m1*v1[1])/(m1+m2)
+        v12=(v1[2]*(m1-m2)+2*m2*v2[2])/(m1+m2)
+        v22=(v2[2]*(m1-m2)+2*m1*v1[2])/(m1+m2)
+        vi=[v10,v11,v12]
+        vj=[v20,v21,v22]
+        return vi,vj
+#tfactor=0
+ref=dict()
+def moveAtoms():
+    
+    t=1
+    j=1
+    #global tfactor
+    
+    
+    cmds.torus(r=6,hr=0.1)
+    cmds.sphere(r=0.5)
+    for time in range (50):
+        '''
+        cmds.nurbsCube()
+        cmds.scale(0.2,3,0.4)
+        cmds.move(0,3,0)
+        cmds.xform(piv=(0,-3,0))
+        cmds.rotate(3.6*time,0,0)
+        '''
+        lis=[]
+        global bondsLink
+        global ref
+        global s
+    
+        for i in s:
+            lis.append(i)
+            if i not in ref:
+                refat=state(i)
+                refk=[refat.points()]
+                ref[i]=[refk,0]
+            
+        
+        for i in range (len(lis)):
+            
+            fr=force(s)
+            fr.tForce()
+            #v1=s[lis[i]][4]
+            v1=iVelocityDict[lis[i]]
+            
+            radius1=s[lis[i]][0]
+            a=state(lis[i])
+            f=a.points()
+            ref1=ref[lis[i]][0]
+            j=i+1 
+            while j>i and j<(len(lis)):                
+                radius2=s[lis[j]][0]
+                #v1=s[lis[i]][4]
+                
+                #v2=s[lis[j]][4]
+                v2=iVelocityDict[lis[j]]
+                
+                cmds.currentTime(t,e=True)
+        
+                
+                b=state(lis[j])
+                
+                
+                g=b.points()
+                
+                ref2=ref[lis[j]][0]
+                c=f,g
+                d=property(c)
+                
+                
+                if len(cmds.ls(lis[i],dag=True))==2 and len(cmds.ls(lis[j],dag=True))==2:
+                    if lis[j] in bondsLink[lis[i]]:
+                        pass
+                    else:
+                        klk1=s[lis[i]][3]
+                        klk2=s[lis[j]][3]
+                       
+                        xrefi=state(lis[i])
+                        yrefj=state(lis[j])
+                        ijxy=xrefi.points(),yrefj.points()
+                        dk=property(ijxy)
+                        if dk.distance()<=(radius1+radius2):
+                            k=momentum(lis[i])+momentum(lis[j])
+                            if s[lis[i]][3]!=0 or s[lis[j]][3]!=0:
+                                ato=lis[i],lis[j]
+                                moleculeAdd(ato)
+                                s[lis[i]][3]=klk1+1
+                                s[lis[j]][3]=klk2+1
+                            h=state(lis[i])            
+                            i1=state(lis[j])
+                            j1=h.points()
+                            j2=i1.points()
+                            ref1=[j1] 
+                            ref2=[j2]
+                            ref[lis[i]][0]=ref1
+                            ref[lis[j]][0]=ref2
+                            ref[lis[i]][1]=1
+                            ref[lis[j]][1]=1
+                            v1=k[0]
+                            v2=k[1]
+                            s[lis[i]][4]=v1
+                            iVelocityDict[lis[i]]=v1
+                            s[lis[j]][4]=v2
+                            iVelocityDict[lis[j]]=v2
+                            global gname
+                            print lis[i]+' collided '+lis[j]
+                            print gname[0]
+                            
+                            tfactor=ref[gname[0]][1]
+                            cmds.select(gname[0],r=True)
+                            tr=1
+                            #cmds.setKeyframe(time=t,at='translate') 
+                            momen=np.array([s[gname[0]][2]*s[gname[0]][4][0],s[gname[0]][2]*s[gname[0]][4][1],s[gname[0]][2]*s[gname[0]][4][2]])
+                            rad5=np.array([g[0]-f[0],g[1]-f[1],g[2]-f[2]])
+                            omega1=np.cross(rad5,momen)
+                            anref=360/math.pi
+                            omega=[omega1[0]*anref/inertiaDict[gname[0]],omega1[1]*anref/inertiaDict[gname[0]],omega1[2]*anref/inertiaDict[gname[0]]]
+                            rotateDict[gname[0]]=[]
+                            rotateDict[gname[0]].append(omega)
+                            rotateDict[gname[0]].append(tr)
+                            cmds.move(s[gname[0]][4][0]*tfactor,s[gname[0]][4][1]*tfactor,s[gname[0]][4][2]*tfactor,ws=True)
+                            #cmds.rotate(omega[0]*tr,omega[1]*tr,omega[2]*tr)
+                            cmds.setKeyframe(time=t,at='translate')
+                            cmds.setKeyframe(time=t,at='rotate') 
+                            kfact=ref[gname[0]][1]
+                            kfact+=1   
+                            ref[gname[0]][1]=kfact
+                            rotateDict[gname[0]][1]+=1
+                            
+           
+                j+=1
+           
+            xpo,ypo,zpo=ref1[0][0],ref1[0][1],10
+            po=xpo,ypo,zpo
+            tpo=po,f
+            apo=property(tpo)
+            if f[2]>10:
+                if v1[2]<0:
+                    pass
+                else:
+                    v1[2]=-v1[2]                                
+                #s[lis[i]][4][2]=v1[2]
+                    iVelocityDict[lis[i]][2]=v1[2]
+                    h1=state(lis[i])
+                    j11=h1.points()
+                    ref1=[j11]
+                
+                    ref[lis[i]][1]=1
+                    if len(cmds.ls(lis[i],dag=True))>2:
+                        frf=cmds.getAttr(lis[i]+'.translate',type=False)
+                        ref[lis[i]][0][0]=frf[0]
+                        ref1[0]=frf[0]
+                    else:
+                        ref[lis[i]][0]=ref1
+            xpo,ypo,zpo=ref1[0][0],ref1[0][1],-10
+            po=xpo,ypo,zpo
+            tpo=po,f            
+            apo=property(tpo)
+            if f[2]<-10:
+                if v1[2]>0:
+                    pass
+                else:
+                    v1[2]=-v1[2]                               
+                #s[lis[i]][4][2]=v1[2]
+                    iVelocityDict[lis[i]][2]=v1[2]
+                    h1=state(lis[i])
+                    j11=h1.points()
+                    ref1=[j11]
+                    
+                    ref[lis[i]][1]=1
+                    if len(cmds.ls(lis[i],dag=True))>2:
+                        frf=cmds.getAttr(lis[i]+'.translate',type=False)
+                        ref[lis[i]][0][0]=frf[0]
+                        ref1[0]=frf[0]
+                    else:
+                        ref[lis[i]][0]=ref1
+            xpo,ypo,zpo=10,ref1[0][1],ref1[0][2]
+            po=xpo,ypo,zpo
+            tpo=po,f            
+            apo=property(tpo)
+            if f[0]>10:
+                if v1[0]<0:
+                    pass
+                else:
+                    v1[0]=-v1[0]                                
+                #s[lis[i]][4][0]=v1[0]
+                    iVelocityDict[lis[i]][0]=v1[0]
+                    h1=state(lis[i])
+                    j11=h1.points()
+                    ref1=[j11]
+                    
+                    ref[lis[i]][1]=1
+                    if len(cmds.ls(lis[i],dag=True))>2:
+                        frf=cmds.getAttr(lis[i]+'.translate',type=False)
+                        ref[lis[i]][0][0]=frf[0]
+                        ref1[0]=frf[0]
+                    else:
+                        ref[lis[i]][0]=ref1   
+            xpo,ypo,zpo=-10,ref1[0][1],ref1[0][2]
+            po=xpo,ypo,zpo
+            tpo=po,f            
+            apo=property(tpo)
+            if f[0]<-10:
+                if v1[0]>0:
+                    pass
+                else:
+                    v1[0]=-v1[0]                               
+                #s[lis[i]][4][0]=v1[0]
+                    iVelocityDict[lis[i]][0]=v1[0]
+                    h1=state(lis[i])
+                    j11=h1.points()
+                    ref1=[j11]
+                    
+                    ref[lis[i]][1]=1
+                    if len(cmds.ls(lis[i],dag=True))>2:
+                        frf=cmds.getAttr(lis[i]+'.translate',type=False)
+                        ref[lis[i]][0][0]=frf[0]
+                        ref1[0]=frf[0]
+                    else:
+                        ref[lis[i]][0]=ref1
+            xpo,ypo,zpo=ref1[0][0],10,ref1[0][2]
+            po=xpo,ypo,zpo
+            tpo=po,f            
+            apo=property(tpo)
+            if f[1]>10:
+                if v1[1]<0:
+                    pass
+                else:
+                    v1[1]=-v1[1]                                
+                #s[lis[i]][4][1]=v1[1]
+                iVelocityDict[lis[i]][1]=v1[1]
+                h1=state(lis[i])
+                j11=h1.points()
+                ref1=[j11]
+                
+                ref[lis[i]][1]=1
+                if len(cmds.ls(lis[i],dag=True))>2:
+                    frf=cmds.getAttr(lis[i]+'.translate',type=False)
+                    ref[lis[i]][0][0]=frf[0]
+                    ref1[0]=frf[0]
+                else:
+                    ref[lis[i]][0]=ref1
+            xpo,ypo,zpo=ref1[0][0],-10,ref1[0][2]
+            po=xpo,ypo,zpo
+            tpo=po,f            
+            apo=property(tpo)
+            if f[1]<-10:
+                if v1[1]>0:
+                    pass
+                else:
+                    v1[1]=-v1[1]                               
+                #s[lis[i]][4][1]=v1[1]
+                    iVelocityDict[lis[i]][1]=v1[1]
+                    h1=state(lis[i])
+                    j11=h1.points()
+                    ref1=[j11]
+                    
+                    ref[lis[i]][1]=1
+                    if len(cmds.ls(lis[i],dag=True))>2:
+                        frf=cmds.getAttr(lis[i]+'.translate',type=False)
+                        ref[lis[i]][0][0]=frf[0]
+                        ref1[0]=frf[0]
+                    else:
+                        ref[lis[i]][0]=ref1
+            global forceDict
+            accx=forceDict[lis[i]][0]/s[lis[i]][2]  
+            accy=forceDict[lis[i]][1]/s[lis[i]][2]
+            accz=forceDict[lis[i]][2]/s[lis[i]][2]       
+            tfactor=ref[lis[i]][1]
+            v11,v22,v33=iVelocityDict[lis[i]][0]+accx*tfactor,iVelocityDict[lis[i]][1]+accy*tfactor,iVelocityDict[lis[i]][2]+accz*tfactor
+            s[lis[i]][4]=[v11,v22,v33]
+                     
+            tfactor=ref[lis[i]][1]
+            arefr=cmds.listRelatives(lis[i],p=True)   
+            if arefr!=None:
+                
+                pass
+            else:
+                
+                cmds.select(lis[i],r=True)
+                roref=len(cmds.listRelatives(lis[i],c=True))
+                if roref>1: 
+                    rotateDict[lis[i]][1]+=1
+                    cmds.rotate(rotateDict[lis[i]][0][0]*rotateDict[lis[i]][1],rotateDict[lis[i]][0][1]*rotateDict[lis[i]][1],rotateDict[lis[i]][0][2]*rotateDict[lis[i]][1])
+                    cmds.setKeyframe(time=t,at='rotate') 
+                cmds.move(iVelocityDict[lis[i]][0]*tfactor+0.5*accx*tfactor*tfactor+ref1[0][0],iVelocityDict[lis[i]][1]*tfactor+0.5*accy*tfactor*tfactor+ref1[0][1],iVelocityDict[lis[i]][2]*tfactor+0.5*accz*tfactor*tfactor+ref1[0][2],ws=True)
+            
+                cmds.setKeyframe(at='translate',e=False)
+                kfact=ref[lis[i]][1]
+                kfact+=1   
+                ref[lis[i]][1]=kfact
+         
+        t=t+1 
+        
+            
+        
+    print 'Done'
+  
+moveAtoms()
+'''
+a=state('C3')
+print a.points()
+print stateDict['C6']
+print cmds.getAttr('C0'+'.translate',type=False)
+cmds.file(save=True)
+x=np.array([0,0,0])
+y=np.array([1,2,3])
+z=np.cross(x,y)
+print z
+cmds.move(-4.807281732065919, 1.3344959320866494, 9.42978035343462e-17)
+a='C3C74','C8'
+k=groups(a)
+k.groupThem()
+
+print cmds.ls('C0C20',dag=True)
+print bondsLink['C0C20']
+
+a='H0','C2'
+moleculeAdd(a)
